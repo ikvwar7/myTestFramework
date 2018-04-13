@@ -11,39 +11,43 @@ import java.util.List;
 
 
 public class Testing {
-    private Class testClass;
+    private final List<Class> testClasses;
 
-    public Testing(Class clas) {
-        this.testClass = clas;
+    public Testing(List<Class> classes) {
+        this.testClasses = classes;
     }
 
     public void runTests() {
+        for (Class clas : testClasses) {
+            try {
+                Object testClass = clas.newInstance();
+                List<Method> tests = findTestsMethod(clas, Test.class);
+                Method before = ReflectionHelper.findAnnotatedMethod(clas, Before.class);
 
-        try {
-            Object tc = testClass.newInstance();
-            List<Method> tests = findTestsMethod(testClass, Test.class);
-            Method before = ReflectionHelper.findAnnotatedMethod(testClass, Before.class);
-            if (before != null)
-                before.invoke(tc);
-            if (tests.size() == 0) throw new NoTest("Нет тестовых методов");
-            else {
-                for (Method test : tests) {
-                    test.invoke(tc);
+                if (before != null) {
+                    before.invoke(testClass);
                 }
-            }
-            Method after = ReflectionHelper.findAnnotatedMethod(testClass, After.class);
-            if (after != null)
-                after.invoke(tc);
+                if (tests.size() == 0) {
+                    throw new NoTest("Нет тестовых методов в классе " + clas.getName());
+                }
 
-        } catch (NoTest e) {
-            System.out.println("ошибка: " + e.getMessage());
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
+                for (Method test : tests) {
+                    test.invoke(testClass);
+                }
+
+                Method after = ReflectionHelper.findAnnotatedMethod(clas, After.class);
+                if (after != null) {
+                    after.invoke(testClass);
+                }
+            } catch (NoTest e) {
+                e.printStackTrace();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
-    public static List<Method> findTestsMethod(Class<?> testClass, Class annotate) {
+    private List<Method> findTestsMethod(Class<?> testClass, Class annotate) {
         List<Method> methods = new ArrayList<>();
         for (Method m : testClass.getMethods()) {
             if (m.getAnnotation(annotate) != null) {
